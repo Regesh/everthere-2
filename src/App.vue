@@ -1,10 +1,8 @@
 <template>
   <div class="app-container">
-    <div class="filters">
-      <filters></filters>
-    </div>
+    <filters v-on:filter-table="filtersObject = $event"></filters>
     <div class="table-container">
-      <Table v-on:table-sorted="sortLeadersData($event)" v-bind:data='filteredLeadersData'></Table>
+      <Table v-on:table-sorted="sortObject = $event" v-bind:data='filteredLeadersData'></Table>
     </div>
   </div>
 </template>
@@ -16,7 +14,15 @@ export default {
   name: 'App',
   data: function() {
     return {
-      leadersData: []
+      leadersData: [],
+      originalData: [],
+      filtersObject: {
+        term: ''
+      },
+      sortObject: {
+        type: 'asc',
+        col: 'rank'
+      }
     }
   },
   components: {
@@ -24,24 +30,36 @@ export default {
     Filters
   },
   methods: {
-    sortLeadersData: function(sortObject) {
-      if (sortObject.type === 'desc') {
+    fetchAssignmentData: function() {
+      this.axios
+      .get('./assets/data/home_assignment_fe_tls_data.json')
+      .then(res => res.data)
+      .then(res => {
+        this.leadersData = this.originalData = res;
+      })
+    },
+    sortLeaders: function() {
+      const { type, col } = this.sortObject;
+      if (type === 'desc') {
         this.leadersData = this.leadersData.sort(function (a, b) {
-          return a[sortObject.col] < b[sortObject.col] ? 1: -1;
+          return a[col] < b[col] ? 1: -1;
         });
       } else {
         this.leadersData = this.leadersData.sort(function (a, b) {
-          return a[sortObject.col] > b[sortObject.col] ? 1: -1;
+          return a[col] > b[col] ? 1: -1;
         });
       }
     },
-    fetchAssignmentData: function() {
-      this.axios
-      .get('./data/home_assignment_fe_tls_data.json')
-      .then(res => res.data)
-      .then(res => {
-        this.leadersData = res;
-      })
+    filterLeaders: function() {
+      const { term } = this.filtersObject;
+      let filteredLeaders = this.originalData;
+      if (term !== '') {
+        const loweredTerm = term.toLowerCase();
+        filteredLeaders = filteredLeaders.filter(leader => leader['name'].toLowerCase().indexOf(loweredTerm) > -1 ||
+        leader['company_name'].toLowerCase().indexOf(loweredTerm) > -1 ||
+        leader['job_title'].toLowerCase().indexOf(loweredTerm) > -1);
+      }
+      this.leadersData = filteredLeaders;
     }
   },
   mounted: function() {
@@ -49,6 +67,8 @@ export default {
   },
   computed: {
     filteredLeadersData: function() {
+      this.filterLeaders();
+      this.sortLeaders();
       return this.leadersData.slice(0, 8);
     }
   }
